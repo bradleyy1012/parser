@@ -5,14 +5,20 @@
 int main(int argc, const char*argv[])
 {
     lexemeListFile = fopen("lexemelist.txt", "r");
-    FILE* symListFile = fopen("symlist.txt", "w");
+
+    // Initially set the table index
+    tableIndex = 0;
 
     // Get the token
     token = getToken();
     block();
 
+    if (token != periodsym) {
+        // TODO: output error
+    }
+
     fclose(lexemeListFile);
-    fclose(symListFile);
+    printSymbolTable();
 
     return 0;
 }

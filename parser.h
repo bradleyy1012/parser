@@ -2,7 +2,7 @@
 
 // Global variables
 FILE* lexemeListFile;
-int token;
+int token, tableIndex;
 
 typedef	enum {
     nulsym	=	1,	identsym,	numbersym,	plussym,	minussym,
@@ -12,6 +12,10 @@ typedef	enum {
     whilesym,	dosym,	callsym,	constsym,	varsym,	procsym,	writesym,
     readsym	,	elsesym
 } token_type;
+
+typedef enum {
+    constant = 1, var = 2, proc = 3
+} kind;
 
 typedef struct symbol {
     int kind;       // const = 1, var = 2, proc = 3
@@ -31,124 +35,29 @@ void condition();
 void statement();
 void block();
 int getToken();
+void printSymbolTable();
 
-int getToken()
+void printSymbolTable()
 {
-    int c = fgetc(lexemeListFile);
-    return c;
-}
+    FILE* symListFile = fopen("symlist.txt", "w");
+    int i;
 
-void expression()
-{
-    if (token == plussym || token == minussym) {
-        token = getToken();
-    }
-    term();
-    while (token == plussym || token == minussym) {
-        token = getToken();
-        term();
-    }
-}
-
-void factor()
-{
-    if (token == identsym) {
-        token = getToken();
-    }
-    else if (isdigit(token)) {
-        token = getToken();
-    }
-    else if (token == lparentsym) {
-        token = getToken();
-        expression();
-        if (token != rparentsym) {
-            // TODO: output error
+    fprintf(symListFile, "Name\tType\tLevel\tValue\n");
+    for (i = 0; i < tableIndex; i++) {
+        switch (symbol_table[i].kind) {
+            case var:
+                fprintf(symListFile, "%s\tvar\t%d\t%d\n",
+                        symbol_table[i].name, symbol_table[i].level, symbol_table[i].val);
+                break;
+            case constant:
+                fprintf(symListFile, "%s\tconst\t0\t%d\n", symbol_table[i].name, symbol_table[i].val);
+                break;
+            case proc:
+                fprintf(symListFile, "%s\tproc\t%d\t1\n", symbol_table[i].name, symbol_table[i].level);
+                break;
         }
-        token = getToken();
     }
-    else {
-        // TODO: output error
-    }
-}
-
-void term()
-{
-    factor();
-    while (token == multsym || token == slashsym) {
-        token = getToken();
-        factor();
-    }
-}
-
-int isRelationalOperator(int c)
-{
-    return c == lessym || c == leqsym || c == gtrsym ||
-           c == eqsym || c == geqsym;
-}
-
-void condition()
-{
-    if (token == oddsym) {
-        token = getToken();
-        expression();
-    }
-    else {
-        expression();
-        if (!isRelationalOperator(token)) {
-            //TODO: output error
-        }
-        token = getToken();
-        expression();
-    }
-}
-
-void statement()
-{
-    if (token == identsym) {
-        token = getToken();
-        if (token != becomessym) {
-            // TODO: output error
-        }
-        token = getToken();
-        expression();
-    }
-    else if (token == callsym) {
-        token = getToken();
-        if (token != identsym) {
-            // TODO: output error
-        }
-        token = getToken();
-    }
-    else if (token == beginsym) {
-        token = getToken();
-        statement();
-        while (token == semicolonsym) {
-            token = getToken();
-            statement();
-        }
-        if (token != endsym) {
-            // TODO: output error
-        }
-        token = getToken();
-    }
-    else if (token == ifsym) {
-        token = getToken();
-        condition();
-        if (token != thensym) {
-            // TODO: output error
-        }
-        token = getToken();
-        statement();
-    }
-    else if (token == whilesym) {
-        token = getToken();
-        condition();
-        if (token != dosym) {
-            // TODO: output error
-        }
-        token = getToken();
-        statement();
-    }
+    fclose(symListFile);
 }
 
 void block()
@@ -206,4 +115,123 @@ void block()
         token = getToken();
     }
     statement();
+}
+
+int getToken()
+{
+    int c = fgetc(lexemeListFile);
+    return c;
+}
+
+void statement()
+{
+    if (token == identsym) {
+        token = getToken();
+        if (token != becomessym) {
+            // TODO: output error
+        }
+        token = getToken();
+        expression();
+    }
+    else if (token == callsym) {
+        token = getToken();
+        if (token != identsym) {
+            // TODO: output error
+        }
+        token = getToken();
+    }
+    else if (token == beginsym) {
+        token = getToken();
+        statement();
+        while (token == semicolonsym) {
+            token = getToken();
+            statement();
+        }
+        if (token != endsym) {
+            // TODO: output error
+        }
+        token = getToken();
+    }
+    else if (token == ifsym) {
+        token = getToken();
+        condition();
+        if (token != thensym) {
+            // TODO: output error
+        }
+        token = getToken();
+        statement();
+    }
+    else if (token == whilesym) {
+        token = getToken();
+        condition();
+        if (token != dosym) {
+            // TODO: output error
+        }
+        token = getToken();
+        statement();
+    }
+}
+
+void expression()
+{
+    if (token == plussym || token == minussym) {
+        token = getToken();
+    }
+    term();
+    while (token == plussym || token == minussym) {
+        token = getToken();
+        term();
+    }
+}
+
+void condition()
+{
+    if (token == oddsym) {
+        token = getToken();
+        expression();
+    }
+    else {
+        expression();
+        if (!isRelationalOperator(token)) {
+            //TODO: output error
+        }
+        token = getToken();
+        expression();
+    }
+}
+
+void factor()
+{
+    if (token == identsym) {
+        token = getToken();
+    }
+    else if (isdigit(token)) {
+        token = getToken();
+    }
+    else if (token == lparentsym) {
+        token = getToken();
+        expression();
+        if (token != rparentsym) {
+            // TODO: output error
+        }
+        token = getToken();
+    }
+    else {
+        // TODO: output error
+    }
+}
+
+void term()
+{
+    factor();
+    while (token == multsym || token == slashsym) {
+        token = getToken();
+        factor();
+    }
+}
+
+int isRelationalOperator(int c)
+{
+    return c == lessym || c == leqsym || c == gtrsym ||
+           c == eqsym || c == geqsym;
 }
