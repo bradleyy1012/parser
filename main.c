@@ -28,17 +28,20 @@ int main(int argc, const char*argv[])
     tokenNodeHead = NULL;
     loadTokens();
 
-    struct Token *node = tokenNodeHead;
-    while (node != NULL) {
-        printf("Integer value: %d\n", node->intData);
-        node = node->nextToken;
+
+    // TODO: For testing purposes only
+    currentToken = getNextToken();
+    while (currentToken != NULL) {
+        printf("Integer value: %d\n", currentToken->intData);
+        currentToken = getNextToken();
     }
+    // TODO: Test ends here
 
     // Initially set the table index
     tableIndex = 0;
 
     // Get the token
-    currentToken = getNextToken();
+    getNextToken();
     block();
 
     //printSymbolTable();

@@ -29,11 +29,11 @@ void haltThatShit()
 struct Token* getNextToken()
 {
     if (tokenNodeHead == NULL) {
-        haltThatShit();
+        return NULL;
     }
-    struct Token *token = tokenNodeHead;
+    currentToken = tokenNodeHead;
     tokenNodeHead = tokenNodeHead->nextToken;
-    return token;
+    return currentToken;
 }
 
 /**
