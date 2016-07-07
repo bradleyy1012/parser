@@ -1,60 +1,52 @@
-typedef	enum {
-    nulsym = 1,	identsym,	numbersym,	plussym,	minussym,
-    multsym,		slashsym,	oddsym,	eqsym,	neqsym,	lessym,	leqsym,
-    gtrsym,	geqsym,	lparentsym,	rparentsym,	commasym,	semicolonsym,
-    periodsym,	becomessym,	beginsym,	endsym,	ifsym,	thensym,
-    whilesym,	dosym,	callsym,	constsym,	varsym,	procsym,	writesym,
-    readsym	,	elsesym
-} token_type;
-
-typedef enum {
-    constant = 1, var = 2, proc = 3
-} kind;
-
-typedef struct symbol {
-    int kind;       // const = 1, var = 2, proc = 3
-    char name[12];  // name up to 11 chars
-    int val;        // number (ASCII value)
-    int level;      // L level
-    int addr;       // M address
-} symbol;
-
-struct Token {
-    char *data;
-    struct Token *nextToken;
-};
-
-symbol symbol_table[MAX_SYMBOL_TABLE_SIZE];
-
+void haltThatShit();
+struct Token* getNextToken();
+void addNode(char *c);
+void loadTokens();
+void printSymbolTable();
+void block();
+void statement();
 void expression();
+void condition();
 void factor();
 void term();
 int isRelationalOperator(int c);
-void condition();
-void statement();
-void block();
-void printSymbolTable();
-void loadTokens();
 int isNumber(int c);
 int isLetter(int c);
-void addNode(char *c);
-struct Token* getNextToken();
 
+/**
+ * Stop execution of the program.
+ */
+void haltThatShit()
+{
+    exit(EXIT_FAILURE);
+}
+
+/**
+ * Get the next token in the linked list, starting with
+ * the head node tokenNodeHead.
+ * @return struct Token* the next token to be processed
+ */
 struct Token* getNextToken()
 {
     if (tokenNodeHead == NULL) {
-        exit(EXIT_FAILURE);
+        haltThatShit();
     }
     struct Token *token = tokenNodeHead;
     tokenNodeHead = tokenNodeHead->nextToken;
     return token;
 }
 
+/**
+ * Add a node to the linked list data structure. The head
+ * node is tokenNodeHead.
+ * @param *c the string to be assigned to the new nodes value
+ */
 void addNode(char *c)
 {
     if(tokenNodeHead == NULL) {
         tokenNodeHead = (struct Token*)malloc(sizeof(struct Token));
         tokenNodeHead->data = c;
+        tokenNodeHead->intData = atoi(c);
         tokenNodeHead->nextToken = NULL;
     }
     else {
@@ -67,12 +59,18 @@ void addNode(char *c)
         newNode = newNode->nextToken;
         newNode->nextToken = NULL;
         newNode->data = c;
+        newNode->intData = atoi(c);
     }
 }
 
+/**
+ * Read in the input from lexemelist.txt and load the tokens
+ * into a linked list. The head node is tokenNodeHead.
+ */
 void loadTokens()
 {
     int c, idx;
+    char *token;
     lexemeListFile = fopen("lexemelist.txt", "r");
 
     while ((c = fgetc(lexemeListFile)) != EOF) {
@@ -87,7 +85,7 @@ void loadTokens()
                 c = fgetc(lexemeListFile);
                 idx++;
             }
-            char *token = (char*) malloc((idx + 1) * sizeof(char));
+            token = (char*) malloc((idx + 1) * sizeof(char));
             memcpy(token, currentToken, idx);
             addNode(token);
         }
@@ -95,12 +93,22 @@ void loadTokens()
     fclose(lexemeListFile);
 }
 
+/**
+ * Print the symbols from symbol_table[] to symlist.txt.
+ */
 void printSymbolTable()
 {
-    FILE* symListFile = fopen("symlist.txt", "w");
     int i;
+    FILE* symListFile = fopen("symlist.txt", "w");
 
+    if (symListFile == NULL) {
+        haltThatShit();
+    }
+
+    // Print out the start of the file
     fprintf(symListFile, "Name\tType\tLevel\tValue\n");
+
+    // Print out errthing else
     for (i = 0; i < tableIndex; i++) {
         switch (symbol_table[i].kind) {
             case var:
@@ -118,58 +126,61 @@ void printSymbolTable()
     fclose(symListFile);
 }
 
+/**
+ * TODO: Incomplete. Also, find out what this shit actually does
+ */
 void block()
 {
-    if (atoi(currentToken->data) == constsym) {
+    if (currentToken->intData == constsym) {
         do {
-            currentToken = getNextToken();
-            if (atoi(currentToken->data) != identsym) {
+            getNextToken();
+            if (currentToken->intData != identsym) {
                 //TODO: output error
             }
             currentToken = getNextToken();
-            if (atoi(currentToken->data) != eqsym) {
+            if (currentToken->intData != eqsym) {
                 //TODO: output error
             }
             currentToken = getNextToken();
 
             // If not a digit
-            if (atoi(currentToken->data) == 0) {
+            if (currentToken->intData == 0) {
                 //TODO: output error
             }
             currentToken = getNextToken();
-        } while (atoi(currentToken->data) != commasym);
+        } while (currentToken->intData != commasym);
 
-        if (atoi(currentToken->data) != semicolonsym) {
+        if (currentToken->intData != semicolonsym) {
             // TODO: output error
         }
         currentToken = getNextToken();
     }
-    if (atoi(currentToken->data) == varsym) {
+    if (currentToken->intData == varsym) {
         do {
             currentToken = getNextToken();
-            if (atoi(currentToken->data) != identsym) {
+            if (currentToken->intData != identsym) {
                 // TODO: output error
             }
             currentToken = getNextToken();
-        } while (atoi(currentToken->data) != commasym);
+        } while (currentToken->intData != commasym);
 
-        if (atoi(currentToken->data) != semicolonsym) {
+        if (currentToken->intData != semicolonsym) {
             // TODO: output error
         }
         currentToken = getNextToken();
     }
-    while (atoi(currentToken->data) == procsym) {
+    while (currentToken->intData == procsym) {
         currentToken = getNextToken();
-        if (atoi(currentToken->data) != identsym) {
+        if (currentToken->intData != identsym) {
             // TODO: output error
         }
         currentToken = getNextToken();
-        if (atoi(currentToken->data) != semicolonsym) {
+        if (currentToken->intData != semicolonsym) {
             // TODO: output error
         }
         currentToken = getNextToken();
         block();
-        if (atoi(currentToken->data) != semicolonsym) {
+        if (currentToken->intData != semicolonsym) {
             // TODO: output error
         }
         currentToken = getNextToken();
@@ -177,48 +188,51 @@ void block()
     statement();
 }
 
+/**
+ * TODO: Incomplete. Also, find out what this shit actually does
+ */
 void statement()
 {
-    if (atoi(currentToken->data) == identsym) {
+    if (currentToken->intData == identsym) {
         currentToken = getNextToken();
-        if (atoi(currentToken->data) != becomessym) {
+        if (currentToken->intData != becomessym) {
             // TODO: output error
         }
         currentToken = getNextToken();
         expression();
     }
-    else if (atoi(currentToken->data) == callsym) {
+    else if (currentToken->intData == callsym) {
         currentToken = getNextToken();
-        if (atoi(currentToken->data) != identsym) {
+        if (currentToken->intData != identsym) {
             // TODO: output error
         }
         currentToken = getNextToken();
     }
-    else if (atoi(currentToken->data) == beginsym) {
+    else if (currentToken->intData == beginsym) {
         currentToken = getNextToken();
         statement();
-        while (atoi(currentToken->data) == semicolonsym) {
+        while (currentToken->intData == semicolonsym) {
             currentToken = getNextToken();
             statement();
         }
-        if (atoi(currentToken->data) != endsym) {
+        if (currentToken->intData != endsym) {
             // TODO: output error
         }
         currentToken = getNextToken();
     }
-    else if (atoi(currentToken->data) == ifsym) {
+    else if (currentToken->intData == ifsym) {
         currentToken = getNextToken();
         condition();
-        if (atoi(currentToken->data) != thensym) {
+        if (currentToken->intData != thensym) {
             // TODO: output error
         }
         currentToken = getNextToken();
         statement();
     }
-    else if (atoi(currentToken->data) == whilesym) {
+    else if (currentToken->intData == whilesym) {
         currentToken = getNextToken();
         condition();
-        if (atoi(currentToken->data) != dosym) {
+        if (currentToken->intData != dosym) {
             // TODO: output error
         }
         currentToken = getNextToken();
@@ -226,27 +240,33 @@ void statement()
     }
 }
 
+/**
+ * TODO: Incomplete. Also, find out what this shit actually does
+ */
 void expression()
 {
-    if (atoi(currentToken->data) == plussym || atoi(currentToken->data) == minussym) {
+    if (currentToken->intData == plussym || currentToken->intData == minussym) {
         currentToken = getNextToken();
     }
     term();
-    while (atoi(currentToken->data) == plussym || atoi(currentToken->data) == minussym) {
+    while (currentToken->intData == plussym || currentToken->intData == minussym) {
         currentToken = getNextToken();
         term();
     }
 }
 
+/**
+ * TODO: Incomplete. Also, find out what this shit actually does
+ */
 void condition()
 {
-    if (atoi(currentToken->data) == oddsym) {
+    if (currentToken->intData == oddsym) {
         currentToken = getNextToken();
         expression();
     }
     else {
         expression();
-        if (!isRelationalOperator(atoi(currentToken->data))) {
+        if (!isRelationalOperator(currentToken->intData)) {
             //TODO: output error
         }
         currentToken = getNextToken();
@@ -254,18 +274,21 @@ void condition()
     }
 }
 
+/**
+ * TODO: Incomplete. Also, find out what this shit actually does
+ */
 void factor()
 {
-    if (atoi(currentToken->data) == identsym) {
+    if (currentToken->intData == identsym) {
         currentToken = getNextToken();
     }
-    else if (isdigit(atoi(currentToken->data))) {  // TODO: This could possibly cause an error
+    else if (isdigit(currentToken->intData)) {  // TODO: This could possibly cause an error
         currentToken = getNextToken();
     }
-    else if (atoi(currentToken->data) == lparentsym) {
+    else if (currentToken->intData == lparentsym) {
         currentToken = getNextToken();
         expression();
-        if (atoi(currentToken->data) != rparentsym) {
+        if (currentToken->intData != rparentsym) {
             // TODO: output error
         }
         currentToken = getNextToken();
@@ -275,26 +298,44 @@ void factor()
     }
 }
 
+/**
+ * TODO: Incomplete. Also, find out what this shit actually does
+ */
 void term()
 {
     factor();
-    while (atoi(currentToken->data) == multsym || atoi(currentToken->data) == slashsym) {
+    while (currentToken->intData == multsym || currentToken->intData == slashsym) {
         currentToken = getNextToken();
         factor();
     }
 }
 
+/**
+ * @param c the integer value representing the relational operator.
+ * @return 1 if c is a relational operator, else 0
+ */
 int isRelationalOperator(int c)
 {
     return c == lessym || c == leqsym || c == gtrsym ||
            c == eqsym || c == geqsym;
 }
 
+/**
+ * Determines if an ASCII value relates to an upper-case or
+ * lower-case letter.
+ * @param c the ASCII integer value
+ * @return 1 if the ASCII value is a letter, else 0
+ */
 int isNumber(int c)
 {
     return c >= 48 && c <= 57;
 }
 
+/**
+ * Determines if an ASCII value relates to a number.
+ * @param c the ASCII integer value
+ * @return 1 if the ASCII value is an integer, else 0
+ */
 int isLetter(int c)
 {
     return (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
