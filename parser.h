@@ -1,11 +1,5 @@
-#define MAX_SYMBOL_TABLE_SIZE 100
-
-// Global variables
-FILE* lexemeListFile;
-int token, tableIndex;
-
 typedef	enum {
-    nulsym	=	1,	identsym,	numbersym,	plussym,	minussym,
+    nulsym = 1,	identsym,	numbersym,	plussym,	minussym,
     multsym,		slashsym,	oddsym,	eqsym,	neqsym,	lessym,	leqsym,
     gtrsym,	geqsym,	lparentsym,	rparentsym,	commasym,	semicolonsym,
     periodsym,	becomessym,	beginsym,	endsym,	ifsym,	thensym,
@@ -25,6 +19,11 @@ typedef struct symbol {
     int addr;       // M address
 } symbol;
 
+struct Token {
+    char *data;
+    struct Token *nextToken;
+};
+
 symbol symbol_table[MAX_SYMBOL_TABLE_SIZE];
 
 void expression();
@@ -34,8 +33,67 @@ int isRelationalOperator(int c);
 void condition();
 void statement();
 void block();
-int getToken();
 void printSymbolTable();
+void loadTokens();
+int isNumber(int c);
+int isLetter(int c);
+void addNode(char *c);
+struct Token* getNextToken();
+
+struct Token* getNextToken()
+{
+    if (tokenNodeHead == NULL) {
+        exit(EXIT_FAILURE);
+    }
+    struct Token *token = tokenNodeHead;
+    tokenNodeHead = tokenNodeHead->nextToken;
+    return token;
+}
+
+void addNode(char *c)
+{
+    if(tokenNodeHead == NULL) {
+        tokenNodeHead = (struct Token*)malloc(sizeof(struct Token));
+        tokenNodeHead->data = c;
+        tokenNodeHead->nextToken = NULL;
+    }
+    else {
+        //Search for the next available space in the linked list
+        struct Token *newNode = tokenNodeHead;
+        while(newNode->nextToken != NULL) {
+            newNode = newNode->nextToken;
+        }
+        newNode->nextToken = (struct Token*)malloc(sizeof(struct Token));
+        newNode = newNode->nextToken;
+        newNode->nextToken = NULL;
+        newNode->data = c;
+    }
+}
+
+void loadTokens()
+{
+    int c, idx;
+    lexemeListFile = fopen("lexemelist.txt", "r");
+
+    while ((c = fgetc(lexemeListFile)) != EOF) {
+        // Make sure we don't read a space
+        if (isNumber(c) || isLetter(c)) {
+
+            idx = 0;
+            char currentToken[MAX_IDENTIFIERS_LENGTH];
+
+            while (isNumber(c) || isLetter(c)) {
+                currentToken[idx] = toascii(c);
+                c = fgetc(lexemeListFile);
+                idx++;
+            }
+            char *token = (char*) malloc((idx + 1) * sizeof(char));
+            memcpy(token, currentToken, idx);
+            addNode(token);
+        }
+    }
+    fclose(lexemeListFile);
+}
 
 void printSymbolTable()
 {
@@ -62,159 +120,155 @@ void printSymbolTable()
 
 void block()
 {
-    if (token == constsym) {
+    if (atoi(currentToken->data) == constsym) {
         do {
-            token = getToken();
-            if (token != identsym) {
+            currentToken = getNextToken();
+            if (atoi(currentToken->data) != identsym) {
                 //TODO: output error
             }
-            token = getToken();
-            if (token != eqsym) {
+            currentToken = getNextToken();
+            if (atoi(currentToken->data) != eqsym) {
                 //TODO: output error
             }
-            token = getToken();
-            if (!isdigit(token)) {
-                //TODO: output error
-            }
-            token = getToken();
-        } while (token != commasym);
+            currentToken = getNextToken();
 
-        if (token != semicolonsym) {
+            // If not a digit
+            if (atoi(currentToken->data) == 0) {
+                //TODO: output error
+            }
+            currentToken = getNextToken();
+        } while (atoi(currentToken->data) != commasym);
+
+        if (atoi(currentToken->data) != semicolonsym) {
             // TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
     }
-    if (token == varsym) {
+    if (atoi(currentToken->data) == varsym) {
         do {
-            token = getToken();
-            if (token != identsym) {
+            currentToken = getNextToken();
+            if (atoi(currentToken->data) != identsym) {
                 // TODO: output error
             }
-            token = getToken();
-        } while (token != commasym);
+            currentToken = getNextToken();
+        } while (atoi(currentToken->data) != commasym);
 
-        if (token != semicolonsym) {
+        if (atoi(currentToken->data) != semicolonsym) {
             // TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
     }
-    while (token == procsym) {
-        token = getToken();
-        if (token != identsym) {
+    while (atoi(currentToken->data) == procsym) {
+        currentToken = getNextToken();
+        if (atoi(currentToken->data) != identsym) {
             // TODO: output error
         }
-        token = getToken();
-        if (token != semicolonsym) {
+        currentToken = getNextToken();
+        if (atoi(currentToken->data) != semicolonsym) {
             // TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
         block();
-        if (token != semicolonsym) {
+        if (atoi(currentToken->data) != semicolonsym) {
             // TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
     }
     statement();
 }
 
-int getToken()
-{
-    int c = fgetc(lexemeListFile);
-    return c;
-}
-
 void statement()
 {
-    if (token == identsym) {
-        token = getToken();
-        if (token != becomessym) {
+    if (atoi(currentToken->data) == identsym) {
+        currentToken = getNextToken();
+        if (atoi(currentToken->data) != becomessym) {
             // TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
         expression();
     }
-    else if (token == callsym) {
-        token = getToken();
-        if (token != identsym) {
+    else if (atoi(currentToken->data) == callsym) {
+        currentToken = getNextToken();
+        if (atoi(currentToken->data) != identsym) {
             // TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
     }
-    else if (token == beginsym) {
-        token = getToken();
+    else if (atoi(currentToken->data) == beginsym) {
+        currentToken = getNextToken();
         statement();
-        while (token == semicolonsym) {
-            token = getToken();
+        while (atoi(currentToken->data) == semicolonsym) {
+            currentToken = getNextToken();
             statement();
         }
-        if (token != endsym) {
+        if (atoi(currentToken->data) != endsym) {
             // TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
     }
-    else if (token == ifsym) {
-        token = getToken();
+    else if (atoi(currentToken->data) == ifsym) {
+        currentToken = getNextToken();
         condition();
-        if (token != thensym) {
+        if (atoi(currentToken->data) != thensym) {
             // TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
         statement();
     }
-    else if (token == whilesym) {
-        token = getToken();
+    else if (atoi(currentToken->data) == whilesym) {
+        currentToken = getNextToken();
         condition();
-        if (token != dosym) {
+        if (atoi(currentToken->data) != dosym) {
             // TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
         statement();
     }
 }
 
 void expression()
 {
-    if (token == plussym || token == minussym) {
-        token = getToken();
+    if (atoi(currentToken->data) == plussym || atoi(currentToken->data) == minussym) {
+        currentToken = getNextToken();
     }
     term();
-    while (token == plussym || token == minussym) {
-        token = getToken();
+    while (atoi(currentToken->data) == plussym || atoi(currentToken->data) == minussym) {
+        currentToken = getNextToken();
         term();
     }
 }
 
 void condition()
 {
-    if (token == oddsym) {
-        token = getToken();
+    if (atoi(currentToken->data) == oddsym) {
+        currentToken = getNextToken();
         expression();
     }
     else {
         expression();
-        if (!isRelationalOperator(token)) {
+        if (!isRelationalOperator(atoi(currentToken->data))) {
             //TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
         expression();
     }
 }
 
 void factor()
 {
-    if (token == identsym) {
-        token = getToken();
+    if (atoi(currentToken->data) == identsym) {
+        currentToken = getNextToken();
     }
-    else if (isdigit(token)) {
-        token = getToken();
+    else if (isdigit(atoi(currentToken->data))) {  // TODO: This could possibly cause an error
+        currentToken = getNextToken();
     }
-    else if (token == lparentsym) {
-        token = getToken();
+    else if (atoi(currentToken->data) == lparentsym) {
+        currentToken = getNextToken();
         expression();
-        if (token != rparentsym) {
+        if (atoi(currentToken->data) != rparentsym) {
             // TODO: output error
         }
-        token = getToken();
+        currentToken = getNextToken();
     }
     else {
         // TODO: output error
@@ -224,8 +278,8 @@ void factor()
 void term()
 {
     factor();
-    while (token == multsym || token == slashsym) {
-        token = getToken();
+    while (atoi(currentToken->data) == multsym || atoi(currentToken->data) == slashsym) {
+        currentToken = getNextToken();
         factor();
     }
 }
@@ -234,4 +288,14 @@ int isRelationalOperator(int c)
 {
     return c == lessym || c == leqsym || c == gtrsym ||
            c == eqsym || c == geqsym;
+}
+
+int isNumber(int c)
+{
+    return c >= 48 && c <= 57;
+}
+
+int isLetter(int c)
+{
+    return (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
 }

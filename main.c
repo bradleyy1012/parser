@@ -1,24 +1,39 @@
+/*
+ * Created by Bradley Kovacs
+ * COP 3402 - Summer 2016
+ * Assignment 3 - Parser
+ */
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
+
+#define MAX_SYMBOL_TABLE_SIZE 100
+#define MAX_IDENTIFIERS_LENGTH 11
+
+// Global variables
+FILE* lexemeListFile;
+int tableIndex, token;
+struct Token *tokenNodeHead, *currentToken;
+
 #include "parser.h"
 
 int main(int argc, const char*argv[])
 {
-    lexemeListFile = fopen("lexemelist.txt", "r");
+    tokenNodeHead = NULL;
+    loadTokens();
+
+    printf("%d\n", atoi(tokenNodeHead->data));
 
     // Initially set the table index
     tableIndex = 0;
 
     // Get the token
-    token = getToken();
+    currentToken = getNextToken();
     block();
 
-    if (token != periodsym) {
-        // TODO: output error
-    }
-
-    fclose(lexemeListFile);
-    printSymbolTable();
+    //printSymbolTable();
 
     return 0;
 }
