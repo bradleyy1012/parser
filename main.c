@@ -8,41 +8,44 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#include "data-structures.h"
 
+#define MAX_CODE_LENGTH 500
 #define MAX_SYMBOL_TABLE_SIZE 100
 #define MAX_IDENTIFIERS_LENGTH 11
 
+#include "data-structures.h"
+#include "error-messages.h"
+
 // Global variables
-FILE* lexemeListFile;
-int tableIndex, token;
-symbol symbol_table[MAX_SYMBOL_TABLE_SIZE];
+int tableIndex, numTokensRead, codeIndex;
+symbol symbolTable[MAX_SYMBOL_TABLE_SIZE];
+instruction code[MAX_CODE_LENGTH];
+struct Token *tokenNodeHead, *currentToken; // currentToken is the current lexeme being processed
 
-// currentToken is the current lexeme being processed
-struct Token *tokenNodeHead, *currentToken;
-
+#include "parser-helper.h"
 #include "parser.h"
 
 int main(int argc, const char*argv[])
 {
+    // Initially set some stuff
+    numTokensRead = 0, tableIndex = 0, codeIndex = 0;
     tokenNodeHead = NULL;
+
+    printf("Compilation process started\n");
+
+    // Load in the tokens
     loadTokens();
 
-
-    // TODO: For testing purposes only
-    currentToken = getNextToken();
-    while (currentToken != NULL) {
-        printf("Integer value: %d\n", currentToken->intData);
-        currentToken = getNextToken();
-    }
-    // TODO: Test ends here
-
-    // Initially set the table index
-    tableIndex = 0;
-
-    // Get the token
+    // Update currentToken to the first token
     getNextToken();
     block();
+
+    if (currentToken->intData != periodsym) {
+        printErrorMessage(expectedPeriod);
+        haltThatShit();
+    }
+
+    printf("Compiling has been complete and no syntax errors were detected\n");
 
     //printSymbolTable();
 

@@ -1,3 +1,6 @@
+void printErrorMessage(int errorCode);
+int isValidVariableName(char *name);
+void insertIntoSymbolTable(int kind, char *name, int val, int level, int addr);
 void haltThatShit();
 struct Token* getNextToken();
 void addNode(char *c);
@@ -13,11 +16,75 @@ int isRelationalOperator(int c);
 int isNumber(int c);
 int isLetter(int c);
 
+void printErrorMessage(int errorCode)
+{
+    printf("The last lexeme is %s\n", currentToken->data);
+    int numTokensProcessed = numTokensRead - 1;
+    float percentComplete;
+    struct Token *t = tokenNodeHead;
+    while (t != NULL) {
+        numTokensProcessed--;
+        t = t->nextToken;
+    }
+    percentComplete = (numTokensProcessed * 100) / numTokensRead;
+    printf("Error %2.1f%% through the program\n%s\n",
+           percentComplete, errorMessage[errorCode - 1]);
+}
+
+int isValidVariableName(char *name)
+{
+    if (name == NULL) haltThatShit();
+    if (strlen(name) > MAX_IDENTIFIERS_LENGTH) return varNameTooLong;
+    if (!isalpha(name[0])) return varNameDoesntStartWithLetter;
+    return 0;
+}
+
+/**
+ * Insert a new instruction into the code[] array and increment codeIndex
+ * @param op the operation code
+ * @param l the lexicographic level
+ * @param m the modifier
+ */
+void emit(int op, int l, int m)
+{
+    if (codeIndex > MAX_CODE_LENGTH) {
+        // TODO: print error message
+    }
+    struct instruction *newInstruction;
+    newInstruction->op = op;
+    newInstruction->l = l;
+    newInstruction->m = m;
+
+    code[codeIndex++] = *newInstruction;
+}
+
+/**
+ * Insert a new symbol into the symbolTable and increment tableIndex.
+ * @param the kind of symbol
+ * @param name of the symbol
+ * @param integer value of symbol
+ * @param L level
+ * @param M address
+ */
+void insertIntoSymbolTable(int kind, char *name, int val, int level, int addr)
+{
+    struct symbol newSymbol;
+    newSymbol.kind = kind;
+    memcpy(newSymbol.name, name, strlen(name) + 1);
+    newSymbol.val = val;
+    newSymbol.level = level;
+    newSymbol.addr = addr;
+
+    symbolTable[tableIndex] = newSymbol;
+    tableIndex++;
+}
+
 /**
  * Stop execution of the program.
  */
 void haltThatShit()
 {
+    printf("Compiling process has failed and is now stopping. Fix your shit and try again\n");
     exit(EXIT_FAILURE);
 }
 
@@ -31,6 +98,7 @@ struct Token* getNextToken()
     if (tokenNodeHead == NULL) {
         return NULL;
     }
+    
     currentToken = tokenNodeHead;
     tokenNodeHead = tokenNodeHead->nextToken;
     return currentToken;
@@ -48,6 +116,7 @@ void addNode(char *c)
         tokenNodeHead->data = c;
         tokenNodeHead->intData = atoi(c);
         tokenNodeHead->nextToken = NULL;
+        tokenNodeHead->prevToken = NULL;
     }
     else {
         //Search for the next available space in the linked list
@@ -55,9 +124,17 @@ void addNode(char *c)
         while(newNode->nextToken != NULL) {
             newNode = newNode->nextToken;
         }
+
+        // Make room for this fucker and assign it a new address in memory
         newNode->nextToken = (struct Token*)malloc(sizeof(struct Token));
+
+        // Keep track of the current node, which allows me to backtrack the fuck out of anything
+        struct Token *previous = newNode;
+
         newNode = newNode->nextToken;
         newNode->nextToken = NULL;
+
+        newNode->prevToken = previous;
         newNode->data = c;
         newNode->intData = atoi(c);
     }
@@ -69,10 +146,11 @@ void addNode(char *c)
  */
 void loadTokens()
 {
-    int c, idx;
+    int c, idx, count = 0;
     char *token;
-    lexemeListFile = fopen("lexemelist.txt", "r");
+    FILE* lexemeListFile = fopen("lexemelist.txt", "r");
 
+    printf("Lexeme tokens: ");
     while ((c = fgetc(lexemeListFile)) != EOF) {
         // Make sure we don't read a space
         if (isNumber(c) || isLetter(c)) {
@@ -88,13 +166,17 @@ void loadTokens()
             token = (char*) malloc((idx + 1) * sizeof(char));
             memcpy(token, currentToken, idx);
             addNode(token);
+            count++;
+            printf("%s ", token);
         }
     }
     fclose(lexemeListFile);
+    printf("\n");
+    numTokensRead = count;
 }
 
 /**
- * Print the symbols from symbol_table[] to symlist.txt.
+ * Print the symbols from symbolTable[] to symlist.txt.
  */
 void printSymbolTable()
 {
@@ -110,16 +192,18 @@ void printSymbolTable()
 
     // Print out errthing else
     for (i = 0; i < tableIndex; i++) {
-        switch (symbol_table[i].kind) {
+        switch (symbolTable[i].kind) {
             case var:
                 fprintf(symListFile, "%s\tvar\t%d\t%d\n",
-                        symbol_table[i].name, symbol_table[i].level, symbol_table[i].val);
+                        symbolTable[i].name, symbolTable[i].level, symbolTable[i].val);
                 break;
             case constant:
-                fprintf(symListFile, "%s\tconst\t0\t%d\n", symbol_table[i].name, symbol_table[i].val);
+                fprintf(symListFile, "%s\tconst\t0\t%d\n",
+                        symbolTable[i].name, symbolTable[i].val);
                 break;
             case proc:
-                fprintf(symListFile, "%s\tproc\t%d\t1\n", symbol_table[i].name, symbol_table[i].level);
+                fprintf(symListFile, "%s\tproc\t%d\t1\n",
+                        symbolTable[i].name, symbolTable[i].level);
                 break;
         }
     }
@@ -131,52 +215,79 @@ void printSymbolTable()
  */
 void block()
 {
+    int result;
+
     if (currentToken->intData == constsym) {
+        printf("constant symbol has been read:  %s\n\n", currentToken->data);
         do {
             getNextToken();
+            printf("Next token:  %s\n\n", currentToken->data);
             if (currentToken->intData != identsym) {
-                //TODO: output error
+                printf("current token != identsym, now halting:  %s\n\n", currentToken->data);
+                printErrorMessage(identsym);
+                haltThatShit();
             }
-            currentToken = getNextToken();
+            getNextToken();
             if (currentToken->intData != eqsym) {
                 //TODO: output error
             }
-            currentToken = getNextToken();
+            getNextToken();
 
-            // If not a digit
+            // If not a number
             if (currentToken->intData == 0) {
                 //TODO: output error
             }
-            currentToken = getNextToken();
+            getNextToken();
         } while (currentToken->intData != commasym);
 
         if (currentToken->intData != semicolonsym) {
             // TODO: output error
         }
-        currentToken = getNextToken();
+        getNextToken();
     }
     if (currentToken->intData == varsym) {
         do {
-            currentToken = getNextToken();
+            getNextToken();
             if (currentToken->intData != identsym) {
-                // TODO: output error
+                printErrorMessage(expectedIdentifier);
+                haltThatShit();
             }
-            currentToken = getNextToken();
-        } while (currentToken->intData != commasym);
+
+            // After this, currentToken now holds the variable name
+            getNextToken();
+
+            printf("Variable name: %s...\n", currentToken->data);
+
+            // isValidVariableName() returns 0 if it is a valid name
+            result = isValidVariableName(currentToken->data);
+            if (result != 0) {
+                printf("Invalid identifier detected!\n");
+                printErrorMessage(result);
+                haltThatShit();
+            }
+            insertIntoSymbolTable(var, currentToken->data, 2, 2, 2);
+
+            // After this, currentToken contains either the ',' OR ';' symbol
+            getNextToken();
+
+        } while (currentToken->intData == commasym);
 
         if (currentToken->intData != semicolonsym) {
-            // TODO: output error
+            printErrorMessage(expectedSemicolon);
+            haltThatShit();
         }
-        currentToken = getNextToken();
+        getNextToken();
     }
     while (currentToken->intData == procsym) {
         currentToken = getNextToken();
         if (currentToken->intData != identsym) {
-            // TODO: output error
+            printErrorMessage(expectedIdentifier);
+            haltThatShit();
         }
         currentToken = getNextToken();
         if (currentToken->intData != semicolonsym) {
-            // TODO: output error
+            printErrorMessage(expectedSemicolon);
+            haltThatShit();
         }
         currentToken = getNextToken();
         block();
@@ -193,65 +304,109 @@ void block()
  */
 void statement()
 {
-    if (currentToken->intData == identsym) {
-        currentToken = getNextToken();
+    int codeIndexTemp, codeIndex1, codeIndex2;
+
+    if (currentToken->intData == identsym) {    // TODO: incomplete. not sure if emit should be used.
+
+        // After this, currentToken will be the variable name
+        getNextToken();
+        printf("Variable name: %s\n", currentToken->data);
+
+        // TODO: make sure the variable was previously declared and shit
+
+        getNextToken();
         if (currentToken->intData != becomessym) {
-            // TODO: output error
+            printErrorMessage(expectedBecomes);
+            haltThatShit();
         }
-        currentToken = getNextToken();
+
+        getNextToken();
         expression();
     }
-    else if (currentToken->intData == callsym) {
+    else if (currentToken->intData == callsym) {    // TODO: incomplete. not sure if emit should be used
         currentToken = getNextToken();
         if (currentToken->intData != identsym) {
             // TODO: output error
         }
         currentToken = getNextToken();
     }
-    else if (currentToken->intData == beginsym) {
-        currentToken = getNextToken();
+    else if (currentToken->intData == beginsym) { // TODO: incomplete
+        getNextToken();
         statement();
+
         while (currentToken->intData == semicolonsym) {
-            currentToken = getNextToken();
+            getNextToken();
             statement();
         }
         if (currentToken->intData != endsym) {
-            // TODO: output error
+            printErrorMessage(expectedEnd);
+            haltThatShit();
         }
-        currentToken = getNextToken();
+
+        // After this, currentToken contains the '.' symbol
+        getNextToken();
     }
     else if (currentToken->intData == ifsym) {
-        currentToken = getNextToken();
+        getNextToken();
         condition();
         if (currentToken->intData != thensym) {
-            // TODO: output error
+            printErrorMessage(expectedThen);
+            haltThatShit();
         }
-        currentToken = getNextToken();
+        getNextToken();
+        codeIndexTemp = codeIndex;
+        emit(JPC, 0, 0);
         statement();
+        code[codeIndexTemp].m = codeIndex;
     }
     else if (currentToken->intData == whilesym) {
-        currentToken = getNextToken();
+        codeIndex1 = codeIndex;
+        getNextToken();
         condition();
+        codeIndex2 = codeIndex;
+        emit(JPC, 0, 0); // TODO: find out if this should be gen()
         if (currentToken->intData != dosym) {
-            // TODO: output error
+            printErrorMessage(expectedDo);
+            haltThatShit();
         }
-        currentToken = getNextToken();
+        getNextToken();
         statement();
+        emit(JMP, 0, codeIndex1);   // TODO: find out if this should be gen()
+        code[codeIndex2].m = codeIndex;
     }
 }
 
 /**
- * TODO: Incomplete. Also, find out what this shit actually does
+ * Handle an expression.
  */
 void expression()
 {
+    int addOp;
     if (currentToken->intData == plussym || currentToken->intData == minussym) {
-        currentToken = getNextToken();
-    }
-    term();
-    while (currentToken->intData == plussym || currentToken->intData == minussym) {
-        currentToken = getNextToken();
+        addOp = currentToken->intData;
+        getNextToken();
         term();
+        if (addOp == minussym) {
+            emit(OPR, 0, NEG);
+        }
+    }
+    else {
+        term();
+    }
+
+    // Look-aheads are for pussies
+    while ((currentToken->intData == plussym || currentToken->intData == minussym) &&
+            currentToken->prevToken->intData != numbersym) {
+        printf("Now in while loop in expression(). Value of token: %s\n", currentToken->data);
+        addOp = currentToken->intData;
+        getNextToken();
+        term();
+        if (addOp == plussym) {
+            emit(OPR, 0, ADD);
+        }
+        else {
+            emit(OPR, 0, SUB);
+        }
     }
 }
 
@@ -261,11 +416,12 @@ void expression()
 void condition()
 {
     if (currentToken->intData == oddsym) {
-        currentToken = getNextToken();
+        getNextToken();
         expression();
     }
     else {
         expression();
+        processRelationalOperator();
         if (!isRelationalOperator(currentToken->intData)) {
             //TODO: output error
         }
@@ -282,8 +438,13 @@ void factor()
     if (currentToken->intData == identsym) {
         currentToken = getNextToken();
     }
-    else if (isdigit(currentToken->intData)) {  // TODO: This could possibly cause an error
-        currentToken = getNextToken();
+    else if (currentToken->intData == numbersym) {
+        getNextToken();
+        printf("Value of variable: %s\n", currentToken->data);
+
+        // TODO: do something with the token
+
+        getNextToken();
     }
     else if (currentToken->intData == lparentsym) {
         currentToken = getNextToken();
@@ -299,14 +460,22 @@ void factor()
 }
 
 /**
- * TODO: Incomplete. Also, find out what this shit actually does
+ * Handle processing a term.
  */
 void term()
 {
+    int multOp;
     factor();
     while (currentToken->intData == multsym || currentToken->intData == slashsym) {
-        currentToken = getNextToken();
+        multOp = currentToken->intData;
+        getNextToken();
         factor();
+        if (multOp == multsym) {
+            emit(OPR, 0, MUL);
+        }
+        else {
+            emit(OPR, 0, DIV);
+        }
     }
 }
 
