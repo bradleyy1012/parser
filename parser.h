@@ -1,21 +1,21 @@
-void printErrorMessage(int errorCode);
-int isValidVariableName(char *name);
 void insertIntoSymbolTable(int kind, char *name, int val, int level, int addr);
-void haltThatShit();
-struct Token* getNextToken();
 void addNode(char *c);
 void loadTokens();
 void printSymbolTable();
-void block();
-void statement();
 void expression();
 void condition();
 void factor();
 void term();
-int isRelationalOperator(int c);
 int isNumber(int c);
 int isLetter(int c);
+int isRelationalOperator(int tok);
+int plusOrMinusSymbolDetected();
+int multOrDivideSymbolDetected();
 
+/**
+ * Prints an error message
+ * @param errorCode the error code with respect to error_type
+ */
 void printErrorMessage(int errorCode)
 {
     printf("The last lexeme is %s\n", currentToken->data);
@@ -29,14 +29,6 @@ void printErrorMessage(int errorCode)
     percentComplete = (numTokensProcessed * 100) / numTokensRead;
     printf("Error %2.1f%% through the program\n%s\n",
            percentComplete, errorMessage[errorCode - 1]);
-}
-
-int isValidVariableName(char *name)
-{
-    if (name == NULL) haltThatShit();
-    if (strlen(name) > MAX_IDENTIFIERS_LENGTH) return varNameTooLong;
-    if (!isalpha(name[0])) return varNameDoesntStartWithLetter;
-    return 0;
 }
 
 /**
@@ -98,7 +90,7 @@ struct Token* getNextToken()
     if (tokenNodeHead == NULL) {
         return NULL;
     }
-    
+
     currentToken = tokenNodeHead;
     tokenNodeHead = tokenNodeHead->nextToken;
     return currentToken;
@@ -156,6 +148,8 @@ void loadTokens()
         if (isNumber(c) || isLetter(c)) {
 
             idx = 0;
+
+            // TODO: this causes an Abort trap 6
             char currentToken[MAX_IDENTIFIERS_LENGTH];
 
             while (isNumber(c) || isLetter(c)) {
@@ -211,285 +205,6 @@ void printSymbolTable()
 }
 
 /**
- * TODO: Incomplete. Also, find out what this shit actually does
- */
-void block()
-{
-    int result;
-
-    if (currentToken->intData == constsym) {
-        printf("constant symbol has been read:  %s\n\n", currentToken->data);
-        do {
-            getNextToken();
-            printf("Next token:  %s\n\n", currentToken->data);
-            if (currentToken->intData != identsym) {
-                printf("current token != identsym, now halting:  %s\n\n", currentToken->data);
-                printErrorMessage(identsym);
-                haltThatShit();
-            }
-            getNextToken();
-            if (currentToken->intData != eqsym) {
-                //TODO: output error
-            }
-            getNextToken();
-
-            // If not a number
-            if (currentToken->intData == 0) {
-                //TODO: output error
-            }
-            getNextToken();
-        } while (currentToken->intData != commasym);
-
-        if (currentToken->intData != semicolonsym) {
-            // TODO: output error
-        }
-        getNextToken();
-    }
-    if (currentToken->intData == varsym) {
-        do {
-            getNextToken();
-            if (currentToken->intData != identsym) {
-                printErrorMessage(expectedIdentifier);
-                haltThatShit();
-            }
-
-            // After this, currentToken now holds the variable name
-            getNextToken();
-
-            printf("Variable name: %s...\n", currentToken->data);
-
-            // isValidVariableName() returns 0 if it is a valid name
-            result = isValidVariableName(currentToken->data);
-            if (result != 0) {
-                printf("Invalid identifier detected!\n");
-                printErrorMessage(result);
-                haltThatShit();
-            }
-            insertIntoSymbolTable(var, currentToken->data, 2, 2, 2);
-
-            // After this, currentToken contains either the ',' OR ';' symbol
-            getNextToken();
-
-        } while (currentToken->intData == commasym);
-
-        if (currentToken->intData != semicolonsym) {
-            printErrorMessage(expectedSemicolon);
-            haltThatShit();
-        }
-        getNextToken();
-    }
-    while (currentToken->intData == procsym) {
-        currentToken = getNextToken();
-        if (currentToken->intData != identsym) {
-            printErrorMessage(expectedIdentifier);
-            haltThatShit();
-        }
-        currentToken = getNextToken();
-        if (currentToken->intData != semicolonsym) {
-            printErrorMessage(expectedSemicolon);
-            haltThatShit();
-        }
-        currentToken = getNextToken();
-        block();
-        if (currentToken->intData != semicolonsym) {
-            // TODO: output error
-        }
-        currentToken = getNextToken();
-    }
-    statement();
-}
-
-/**
- * TODO: Incomplete. Also, find out what this shit actually does
- */
-void statement()
-{
-    int codeIndexTemp, codeIndex1, codeIndex2;
-
-    if (currentToken->intData == identsym) {    // TODO: incomplete. not sure if emit should be used.
-
-        // After this, currentToken will be the variable name
-        getNextToken();
-        printf("Variable name: %s\n", currentToken->data);
-
-        // TODO: make sure the variable was previously declared and shit
-
-        getNextToken();
-        if (currentToken->intData != becomessym) {
-            printErrorMessage(expectedBecomes);
-            haltThatShit();
-        }
-
-        getNextToken();
-        expression();
-    }
-    else if (currentToken->intData == callsym) {    // TODO: incomplete. not sure if emit should be used
-        currentToken = getNextToken();
-        if (currentToken->intData != identsym) {
-            // TODO: output error
-        }
-        currentToken = getNextToken();
-    }
-    else if (currentToken->intData == beginsym) { // TODO: incomplete
-        getNextToken();
-        statement();
-
-        while (currentToken->intData == semicolonsym) {
-            getNextToken();
-            statement();
-        }
-        if (currentToken->intData != endsym) {
-            printErrorMessage(expectedEnd);
-            haltThatShit();
-        }
-
-        // After this, currentToken contains the '.' symbol
-        getNextToken();
-    }
-    else if (currentToken->intData == ifsym) {
-        getNextToken();
-        condition();
-        if (currentToken->intData != thensym) {
-            printErrorMessage(expectedThen);
-            haltThatShit();
-        }
-        getNextToken();
-        codeIndexTemp = codeIndex;
-        emit(JPC, 0, 0);
-        statement();
-        code[codeIndexTemp].m = codeIndex;
-    }
-    else if (currentToken->intData == whilesym) {
-        codeIndex1 = codeIndex;
-        getNextToken();
-        condition();
-        codeIndex2 = codeIndex;
-        emit(JPC, 0, 0); // TODO: find out if this should be gen()
-        if (currentToken->intData != dosym) {
-            printErrorMessage(expectedDo);
-            haltThatShit();
-        }
-        getNextToken();
-        statement();
-        emit(JMP, 0, codeIndex1);   // TODO: find out if this should be gen()
-        code[codeIndex2].m = codeIndex;
-    }
-}
-
-/**
- * Handle an expression.
- */
-void expression()
-{
-    int addOp;
-    if (currentToken->intData == plussym || currentToken->intData == minussym) {
-        addOp = currentToken->intData;
-        getNextToken();
-        term();
-        if (addOp == minussym) {
-            emit(OPR, 0, NEG);
-        }
-    }
-    else {
-        term();
-    }
-
-    // Look-aheads are for pussies
-    while ((currentToken->intData == plussym || currentToken->intData == minussym) &&
-            currentToken->prevToken->intData != numbersym) {
-        printf("Now in while loop in expression(). Value of token: %s\n", currentToken->data);
-        addOp = currentToken->intData;
-        getNextToken();
-        term();
-        if (addOp == plussym) {
-            emit(OPR, 0, ADD);
-        }
-        else {
-            emit(OPR, 0, SUB);
-        }
-    }
-}
-
-/**
- * TODO: Incomplete. Also, find out what this shit actually does
- */
-void condition()
-{
-    if (currentToken->intData == oddsym) {
-        getNextToken();
-        expression();
-    }
-    else {
-        expression();
-        processRelationalOperator();
-        if (!isRelationalOperator(currentToken->intData)) {
-            //TODO: output error
-        }
-        currentToken = getNextToken();
-        expression();
-    }
-}
-
-/**
- * TODO: Incomplete. Also, find out what this shit actually does
- */
-void factor()
-{
-    if (currentToken->intData == identsym) {
-        currentToken = getNextToken();
-    }
-    else if (currentToken->intData == numbersym) {
-        getNextToken();
-        printf("Value of variable: %s\n", currentToken->data);
-
-        // TODO: do something with the token
-
-        getNextToken();
-    }
-    else if (currentToken->intData == lparentsym) {
-        currentToken = getNextToken();
-        expression();
-        if (currentToken->intData != rparentsym) {
-            // TODO: output error
-        }
-        currentToken = getNextToken();
-    }
-    else {
-        // TODO: output error
-    }
-}
-
-/**
- * Handle processing a term.
- */
-void term()
-{
-    int multOp;
-    factor();
-    while (currentToken->intData == multsym || currentToken->intData == slashsym) {
-        multOp = currentToken->intData;
-        getNextToken();
-        factor();
-        if (multOp == multsym) {
-            emit(OPR, 0, MUL);
-        }
-        else {
-            emit(OPR, 0, DIV);
-        }
-    }
-}
-
-/**
- * @param c the integer value representing the relational operator.
- * @return 1 if c is a relational operator, else 0
- */
-int isRelationalOperator(int c)
-{
-    return c == lessym || c == leqsym || c == gtrsym ||
-           c == eqsym || c == geqsym;
-}
-
-/**
  * Determines if an ASCII value relates to an upper-case or
  * lower-case letter.
  * @param c the ASCII integer value
@@ -508,4 +223,32 @@ int isNumber(int c)
 int isLetter(int c)
 {
     return (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
+}
+
+/**
+ * @param c the integer value representing the relational operator.
+ * @return 1 if c is a relational operator, else 0
+ */
+int isRelationalOperator(int tok)
+{
+    return tok == eqsym || tok == neqsym || tok == lessym || tok == leqsym ||
+           tok == gtrsym || tok == geqsym;
+}
+
+/**
+ * Decides whether a plus or minus symbol was encountered in the currentToken
+ */
+int plusOrMinusSymbolDetected()
+{
+    return (currentToken->intData == plussym || currentToken->intData == minussym) &&
+           currentToken->prevToken->intData != numbersym;
+}
+
+/**
+ * Decides whether a multiplication or division symbol was encountered in the currentToken
+ */
+int multOrDivideSymbolDetected()
+{
+    return (currentToken->intData == multsym || currentToken->intData == slashsym) &&
+           currentToken->prevToken->intData != numbersym;
 }

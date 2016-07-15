@@ -20,10 +20,10 @@
 int tableIndex, numTokensRead, codeIndex;
 symbol symbolTable[MAX_SYMBOL_TABLE_SIZE];
 instruction code[MAX_CODE_LENGTH];
-struct Token *tokenNodeHead, *currentToken; // currentToken is the current lexeme being processed
+struct Token *tokenNodeHead, *currentToken;
 
-#include "parser-helper.h"
 #include "parser.h"
+#include "parser-states.h"
 
 int main(int argc, const char*argv[])
 {
