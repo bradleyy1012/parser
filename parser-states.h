@@ -32,6 +32,16 @@ void processConstantDeclaration()
         getNextToken();
         processNumber();
 
+        addConstantSymbol(
+                currentToken->prevToken->prevToken->prevToken->prevToken->data,
+                currentToken->prevToken->prevToken->intData,
+                0
+        );
+
+        printf("Constant name: %s\nValue: %s\n",
+               currentToken->prevToken->prevToken->prevToken->prevToken->data,
+               currentToken->prevToken->prevToken->data);
+
         while (currentToken->intData == commasym) {
             getNextToken();
             processIdentifier();
@@ -60,9 +70,13 @@ void processVarDeclaration()
         printf("Varsym processed!\n");
         getNextToken();
         processIdentifier();
+
+        addVariableSymbol(currentToken->prevToken->data, 0, 0);
+
         while (currentToken->intData == commasym) {
             getNextToken();
             processIdentifier();
+            addVariableSymbol(currentToken->prevToken->data, 0, 0);
         }
         if (currentToken->intData != semicolonsym) {
             printErrorMessage(expectedSemicolon);
@@ -99,10 +113,14 @@ void processProcedureDeclaration()
  */
 void block()
 {
+    lexLevel++;
+
     processConstantDeclaration();
     processVarDeclaration();
     processProcedureDeclaration();
     statement();
+
+    lexLevel--;
 }
 
 /**
@@ -174,7 +192,7 @@ void processIdentifier()
         haltThatShit();
     }
 
-    // Verify corrent length
+    // Verify correct length
     int len = strlen(currentToken->data);
     if (len > MAX_IDENTIFIERS_LENGTH) {
         printErrorMessage(varNameTooLong);

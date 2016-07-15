@@ -1,4 +1,6 @@
-void insertIntoSymbolTable(int kind, char *name, int val, int level, int addr);
+void addConstantSymbol(char *name, int val, int address);
+void addVariableSymbol(char *name, int val, int address);
+void addProcedureSymbol(char *name, int val, int address);
 void addNode(char *c);
 void loadTokens();
 void printSymbolTable();
@@ -11,6 +13,31 @@ int isLetter(int c);
 int isRelationalOperator(int tok);
 int plusOrMinusSymbolDetected();
 int multOrDivideSymbolDetected();
+void addConstantSymbol();
+
+/**
+ * Add a constant symbol to the symbol table
+ */
+void addConstantSymbol(char *name, int val, int address)
+{
+    insertIntoSymbolTable(constant, name, val, lexLevel, address);
+}
+
+/**
+ * Add a variable to the symbol table
+ */
+void addVariableSymbol(char *name, int val, int address)
+{
+    insertIntoSymbolTable(var, name, val, lexLevel, address);
+}
+
+/**
+ * Add a procedure to the symbol table
+ */
+void addProcedureSymbol(char *name, int val, int address)
+{
+    insertIntoSymbolTable(proc, name, val, lexLevel, address);
+}
 
 /**
  * Prints an error message
@@ -48,27 +75,6 @@ void emit(int op, int l, int m)
     newInstruction->m = m;
 
     code[codeIndex++] = *newInstruction;
-}
-
-/**
- * Insert a new symbol into the symbolTable and increment tableIndex.
- * @param the kind of symbol
- * @param name of the symbol
- * @param integer value of symbol
- * @param L level
- * @param M address
- */
-void insertIntoSymbolTable(int kind, char *name, int val, int level, int addr)
-{
-    struct symbol newSymbol;
-    newSymbol.kind = kind;
-    memcpy(newSymbol.name, name, strlen(name) + 1);
-    newSymbol.val = val;
-    newSymbol.level = level;
-    newSymbol.addr = addr;
-
-    symbolTable[tableIndex] = newSymbol;
-    tableIndex++;
 }
 
 /**
@@ -178,6 +184,7 @@ void printSymbolTable()
     FILE* symListFile = fopen("symlist.txt", "w");
 
     if (symListFile == NULL) {
+        printErrorMessage(errorOpeningSymbolListFile);
         haltThatShit();
     }
 
@@ -185,19 +192,23 @@ void printSymbolTable()
     fprintf(symListFile, "Name\tType\tLevel\tValue\n");
 
     // Print out errthing else
-    for (i = 0; i < tableIndex; i++) {
-        switch (symbolTable[i].kind) {
+    for (i = 0; i < MAX_SYMBOL_TABLE_SIZE; i++) {
+
+        // No point in processing shit thats not there
+        if (symbolTable[i] == NULL) continue;
+
+        switch (symbolTable[i]->kind) {
             case var:
-                fprintf(symListFile, "%s\tvar\t%d\t%d\n",
-                        symbolTable[i].name, symbolTable[i].level, symbolTable[i].val);
+                fprintf(symListFile, "%4s\tvar \t%4d\t%5d\n",
+                        symbolTable[i]->name, symbolTable[i]->level, symbolTable[i]->val);
                 break;
             case constant:
-                fprintf(symListFile, "%s\tconst\t0\t%d\n",
-                        symbolTable[i].name, symbolTable[i].val);
+                fprintf(symListFile, "%4s\tconst\t%4d\t%5d\n",
+                        symbolTable[i]->name, symbolTable[i]->level, symbolTable[i]->val);
                 break;
             case proc:
-                fprintf(symListFile, "%s\tproc\t%d\t1\n",
-                        symbolTable[i].name, symbolTable[i].level);
+                fprintf(symListFile, "%4s\tproc\t%4d\t1\n",
+                        symbolTable[i]->name, symbolTable[i]->level);
                 break;
         }
     }
@@ -237,6 +248,7 @@ int isRelationalOperator(int tok)
 
 /**
  * Decides whether a plus or minus symbol was encountered in the currentToken
+ * @return 1 if plussym or minussym was detected
  */
 int plusOrMinusSymbolDetected()
 {
@@ -246,6 +258,7 @@ int plusOrMinusSymbolDetected()
 
 /**
  * Decides whether a multiplication or division symbol was encountered in the currentToken
+ * @return 1 if multsym or slashsym was detected
  */
 int multOrDivideSymbolDetected()
 {

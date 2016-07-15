@@ -7,11 +7,11 @@ typedef	enum {
     expectedDo = 8, expectedEnd = 9, invalidRelationalOperator = 10, expectedDigit = 11,
     weirdNullIdentifier = 12, invalidVariableName = 13, expectedRelationalOperator = 14,
     missingIdentSymbol = 15, expectedEqualSymbol = 16, missingNumberSymbol = 17,
-    expectedRightParentheses = 18, incompleteFactorDetected = 19
+    expectedRightParentheses = 18, incompleteFactorDetected = 19, errorOpeningSymbolListFile = 20
 } error_type;
 
 // The order of this is with respect to error_type
-char *errorMessage[19] = {
+char *errorMessage[20] = {
         // varNameTooLong
         "Variable name exceeds the maximum length for variable names",
 
@@ -67,7 +67,10 @@ char *errorMessage[19] = {
         "Expected ')', but none was encountered",
 
         // incompleteFactorDetected
-        "Incomplete factor was encountered. Expected an identifier, number or '('. None was encountered"
+        "Incomplete factor was encountered. Expected an identifier, number or '('. None was encountered",
+
+        // errorOpeningSymbolListFile
+        "There was an error when trying to open symlist.txt"
 
 };
 

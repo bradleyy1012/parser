@@ -24,14 +24,6 @@ typedef enum {
     RET = 0, NEG, ADD, SUB, MUL, DIV, ODD, MOD, EQL, NEQ, LSS, LEQ, GTR, GEQ
 } ALU_CODE;
 
-typedef struct symbol {
-    int kind;       // const = 1, var = 2, proc = 3
-    char name[12];  // name up to 11 chars
-    int val;        // number (ASCII value)
-    int level;      // L level
-    int addr;       // M address
-} symbol;
-
 typedef struct instruction {
     int op; // opcode
     int l;  // L
@@ -45,4 +37,11 @@ struct Token {
     struct Token *prevToken;
 };
 
+typedef struct symbol {
+    int kind;       // const = 1, var = 2, proc = 3
+    char name[12];  // name up to 11 chars (also the key for hash table)
+    int val;        // number (ASCII value)
+    int level;      // L level
+    int addr;       // M address
+} symbol;
 #endif //PARSER_DATA_STRUCTURES_H

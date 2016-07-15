@@ -14,21 +14,23 @@
 #define MAX_IDENTIFIERS_LENGTH 11
 
 #include "data-structures.h"
-#include "error-messages.h"
 
 // Global variables
-int tableIndex, numTokensRead, codeIndex;
-symbol symbolTable[MAX_SYMBOL_TABLE_SIZE];
+int tableIndex, numTokensRead, codeIndex, lexLevel;
+symbol *symbolTable[MAX_SYMBOL_TABLE_SIZE];
 instruction code[MAX_CODE_LENGTH];
 struct Token *tokenNodeHead, *currentToken;
 
+#include "symbol-table.h"
+#include "error-messages.h"
 #include "parser.h"
 #include "parser-states.h"
 
 int main(int argc, const char*argv[])
 {
     // Initially set some stuff
-    numTokensRead = 0, tableIndex = 0, codeIndex = 0;
+    numTokensRead = tableIndex = codeIndex = 0;
+    lexLevel = -1;
     tokenNodeHead = NULL;
 
     printf("Compilation process started\n");
@@ -47,7 +49,7 @@ int main(int argc, const char*argv[])
 
     printf("Compiling has been complete and no syntax errors were detected\n");
 
-    //printSymbolTable();
+    printSymbolTable();
 
     return 0;
 }
