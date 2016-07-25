@@ -351,7 +351,7 @@ void statement()
             printErrorMessage(varWasNeverDeclared);
             haltThatShit();
         }
-        printf("%d\n", t->name, t->val);
+        printf("%d\n", t->val);
     }
 }
 
