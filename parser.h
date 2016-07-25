@@ -1,6 +1,6 @@
-void addConstantSymbol(char *name, int val, int address);
+void addConstantSymbol(char *name, int val);
 void addVariableSymbol(char *name, int val, int address);
-void addProcedureSymbol(char *name, int val, int address);
+void addProcedureSymbol(char *name);
 void addNode(char *c);
 void loadTokens();
 void printSymbolTable();
@@ -13,12 +13,12 @@ int isLetter(int c);
 int isRelationalOperator(int tok);
 int plusOrMinusSymbolDetected();
 int multOrDivideSymbolDetected();
-void addConstantSymbol();
+void verifyValidIdentifierName(char *name);
 
 /**
  * Add a constant symbol to the symbol table
  */
-void addConstantSymbol(char *name, int val, int address)
+void addConstantSymbol(char *name, int val)
 {
     insertIntoSymbolTable(constant, name, val, lexLevel, address);
 }
@@ -34,9 +34,10 @@ void addVariableSymbol(char *name, int val, int address)
 /**
  * Add a procedure to the symbol table
  */
-void addProcedureSymbol(char *name, int val, int address)
+void addProcedureSymbol(char *name)
 {
-    insertIntoSymbolTable(proc, name, val, lexLevel, address);
+    insertIntoSymbolTable(proc, name, 0, lexLevel, address);
+    address++;
 }
 
 /**
@@ -69,12 +70,12 @@ void emit(int op, int l, int m)
     if (codeIndex > MAX_CODE_LENGTH) {
         // TODO: print error message
     }
-    struct instruction *newInstruction;
-    newInstruction->op = op;
-    newInstruction->l = l;
-    newInstruction->m = m;
+    struct instruction newInstruction;
+    newInstruction.op = op;
+    newInstruction.l = l;
+    newInstruction.m = m;
 
-    code[codeIndex++] = *newInstruction;
+    code[codeIndex++] = newInstruction;
 }
 
 /**
@@ -126,7 +127,7 @@ void addNode(char *c)
         // Make room for this fucker and assign it a new address in memory
         newNode->nextToken = (struct Token*)malloc(sizeof(struct Token));
 
-        // Keep track of the current node, which allows me to backtrack the fuck out of anything
+        // Keep track of the current node, which allows me to backtrack using fixed offsets
         struct Token *previous = newNode;
 
         newNode = newNode->nextToken;
@@ -189,25 +190,23 @@ void printSymbolTable()
     }
 
     // Print out the start of the file
-    fprintf(symListFile, "Name\tType\tLevel\tValue\n");
+    fprintf(symListFile, "Name\t\t\tType\tLevel\tValue\n");
 
     // Print out errthing else
     for (i = 0; i < MAX_SYMBOL_TABLE_SIZE; i++) {
-
-        // No point in processing shit thats not there
         if (symbolTable[i] == NULL) continue;
 
         switch (symbolTable[i]->kind) {
             case var:
-                fprintf(symListFile, "%4s\tvar \t%4d\t%5d\n",
+                fprintf(symListFile, "%11s\t\tvar \t%4d\t%5d\n",
                         symbolTable[i]->name, symbolTable[i]->level, symbolTable[i]->val);
                 break;
             case constant:
-                fprintf(symListFile, "%4s\tconst\t%4d\t%5d\n",
+                fprintf(symListFile, "%11s\t\tconst\t%4d\t%5d\n",
                         symbolTable[i]->name, symbolTable[i]->level, symbolTable[i]->val);
                 break;
             case proc:
-                fprintf(symListFile, "%4s\tproc\t%4d\t1\n",
+                fprintf(symListFile, "%11s\t\tproc\t%4d\t1\n",
                         symbolTable[i]->name, symbolTable[i]->level);
                 break;
         }
@@ -264,4 +263,41 @@ int multOrDivideSymbolDetected()
 {
     return (currentToken->intData == multsym || currentToken->intData == slashsym) &&
            currentToken->prevToken->intData != numbersym;
+}
+
+/**
+ * Verifies whether the parameter is a valid identifier
+ * @param *name the name of the identifier
+ * @return 1 if *name is a valid identifier based on given
+ * constraints, else returns 0
+ */
+void verifyValidIdentifierName(char *name)
+{
+    // This should never happen, but just in case
+    if (name == NULL) {
+        printErrorMessage(weirdNullIdentifier);
+        haltThatShit();
+    }
+
+    // Verify correct length
+    int len = strlen(name);
+    if (len > MAX_IDENTIFIERS_LENGTH) {
+        printErrorMessage(varNameTooLong);
+        haltThatShit();
+    }
+
+    // Verify it starts with a letter
+    if (!isalpha(name[0])) {
+        printErrorMessage(varNameDoesntStartWithLetter);
+        haltThatShit();
+    }
+
+    // Iterate in reverse to save memory space
+    for (; len > 0; len--) {
+        // Verify the len-th character is a letter or digit
+        if (!isalnum(name[len - 1])) {
+            printErrorMessage(invalidVariableName);
+            haltThatShit();
+        }
+    }
 }

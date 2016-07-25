@@ -1,4 +1,5 @@
-Name	Type	Level	Value
-   x	var 	   0	    0
-   y	var 	   0	    0
-   a	var 	   1	    0
+Name			Type	Level	Value
+          i		var 	   0	    4
+      aprev		var 	   0	    5
+          t		var 	   0	    6
+          a		var 	   0	    4

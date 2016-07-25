@@ -34,13 +34,7 @@ void processConstantDeclaration()
 
         addConstantSymbol(
                 currentToken->prevToken->prevToken->prevToken->prevToken->data,
-                currentToken->prevToken->prevToken->intData,
-                0
-        );
-
-        printf("Constant name: %s\nValue: %s\n",
-               currentToken->prevToken->prevToken->prevToken->prevToken->data,
-               currentToken->prevToken->prevToken->data);
+                currentToken->prevToken->prevToken->intData);
 
         while (currentToken->intData == commasym) {
             getNextToken();
@@ -51,6 +45,10 @@ void processConstantDeclaration()
             }
             getNextToken();
             processNumber();
+
+            addConstantSymbol(
+                    currentToken->prevToken->prevToken->prevToken->prevToken->data,
+                    currentToken->prevToken->prevToken->intData);
         }
         if (currentToken->intData != semicolonsym) {
             printErrorMessage(expectedSemicolon);
@@ -61,22 +59,18 @@ void processConstantDeclaration()
 }
 
 /**
- * Status: COMPLETE
  * Simulates the state for var-declaration
  */
 void processVarDeclaration()
 {
     if (currentToken->intData == varsym) {
-        printf("Varsym processed!\n");
         getNextToken();
         processIdentifier();
-
-        addVariableSymbol(currentToken->prevToken->data, 0, 0);
 
         while (currentToken->intData == commasym) {
             getNextToken();
             processIdentifier();
-            addVariableSymbol(currentToken->prevToken->data, 0, 0);
+            insertIntoSymbolTable(var, currentToken->prevToken->data, varOffset, lexLevel, 0);
         }
         if (currentToken->intData != semicolonsym) {
             printErrorMessage(expectedSemicolon);
@@ -94,6 +88,7 @@ void processProcedureDeclaration()
     while (currentToken->intData == procsym) {
         getNextToken();
         processIdentifier();
+        addProcedureSymbol(currentToken->prevToken->data);
         if (currentToken->intData != semicolonsym) {
             printErrorMessage(expectedSemicolon);
             haltThatShit();
@@ -114,22 +109,18 @@ void processProcedureDeclaration()
 void block()
 {
     lexLevel++;
-
     processConstantDeclaration();
     processVarDeclaration();
     processProcedureDeclaration();
     statement();
-
     lexLevel--;
 }
 
 /**
- * Status: COMPLETE
  * Simulates the state for rel-op
  */
 void processRelationalOperator()
 {
-    // Make sure it's a rel-op
     if (!isRelationalOperator(currentToken->intData)) {
         printErrorMessage(expectedRelationalOperator);
         haltThatShit();
@@ -149,7 +140,6 @@ void processRelationalOperator()
 }
 
 /**
- * Status: COMPLETE
  * Simulates the state for number
  */
 void processNumber()
@@ -159,10 +149,6 @@ void processNumber()
         haltThatShit();
     }
     getNextToken();
-    printf("Value of number: %s\n", currentToken->data);
-
-    // TODO: after project is completed, use the function to just test the entire string for ints
-
     int i;
     for (i = 0; i < strlen(currentToken->data); i++) {
         int asciiValue = (int) currentToken->data[i];
@@ -175,7 +161,6 @@ void processNumber()
 }
 
 /**
- * Status: COMPLETE
  * Simulates the state for ident
  */
 void processIdentifier()
@@ -185,40 +170,12 @@ void processIdentifier()
         haltThatShit();
     }
     getNextToken();
-    printf("Identifier name: %s\n", currentToken->data);
-    // This should never happen, but just in case
-    if (currentToken->data == NULL) {
-        printErrorMessage(weirdNullIdentifier);
-        haltThatShit();
-    }
-
-    // Verify correct length
-    int len = strlen(currentToken->data);
-    if (len > MAX_IDENTIFIERS_LENGTH) {
-        printErrorMessage(varNameTooLong);
-        haltThatShit();
-    }
-
-    // Verify it starts with a letter
-    if (!isalpha(currentToken->data[0])) {
-        printErrorMessage(varNameDoesntStartWithLetter);
-        haltThatShit();
-    }
-
-    // Iterate in reverse to save memory space
-    for (; len > 0; len--) {
-        // Verify the len-th character is a letter or digit
-        if (!isalnum(currentToken->data[len - 1])) {
-            printErrorMessage(invalidVariableName);
-            haltThatShit();
-        }
-    }
-
+    verifyValidIdentifierName(currentToken->data);
     getNextToken();
 }
 
 /**
- * Handle an expression.
+ * Simulates the state for expression
  */
 void expression()
 {
@@ -227,31 +184,18 @@ void expression()
         addOp = currentToken->intData;
         getNextToken();
         term();
-        /*
-        if (addOp == minussym) {
-            emit(OPR, 0, NEG);
-        }
-         */
+        if (addOp == minussym) emit(OPR, 0, NEG);
     }
     else {
         term();
     }
-
     while (plusOrMinusSymbolDetected()) {
-        printf("Plus (%d) or minus (%d) symbol detected! Value of token: %d\n",
-               plussym, minussym, currentToken->intData);
         addOp = currentToken->intData;
         getNextToken();
         term();
 
-        /*
-        if (addOp == plussym) {
-            emit(OPR, 0, ADD);
-        }
-        else {
-            emit(OPR, 0, SUB);
-        }
-         */
+        if (addOp == plussym) emit(OPR, 0, ADD);
+        else emit(OPR, 0, SUB);
     }
 }
 
@@ -260,14 +204,17 @@ void expression()
  */
 void condition()
 {
-    if (currentToken->intData == oddsym) {
+    int tempSym = currentToken->intData;
+    if (tempSym == oddsym) {
         getNextToken();
         expression();
+        emit(OPR, 0, ODD);
     }
     else {
         expression();
         processRelationalOperator();
         expression();
+        emit(OPR, 0, tempSym);
     }
 }
 
@@ -276,10 +223,26 @@ void condition()
  */
 void statement()
 {
-    int codeIndexTemp, codeIndex1, codeIndex2, val;
+    struct symbol *t;
+    int codeIndexTemp, codeIndex1, codeIndex2, userInput;
 
     if (currentToken->intData == identsym) {
         processIdentifier();
+
+        t = search(currentToken->prevToken->data);
+
+        // Verify the identifier was previously declared
+        if (t == NULL) {
+            printErrorMessage(varWasNeverDeclared);
+            haltThatShit();
+        }
+
+        // Make sure they aren't trying to change the value of a constant
+        if (t->kind == constant) {
+            printErrorMessage(attemptToChangeConstant);
+            haltThatShit();
+        }
+
         if (currentToken->intData != becomessym) {
             printErrorMessage(expectedBecomes);
             haltThatShit();
@@ -290,6 +253,17 @@ void statement()
     else if (currentToken->intData == callsym) {
         getNextToken();
         processIdentifier();
+        t = search(currentToken->prevToken->data);
+
+        if (t == NULL) {
+            printErrorMessage(identifierNotDeclared);
+            haltThatShit();
+        }
+
+        if (t->kind != proc) {
+            printErrorMessage(callingConstOrVar);
+            haltThatShit();
+        }
     }
     else if (currentToken->intData == beginsym) {
         getNextToken();
@@ -313,10 +287,12 @@ void statement()
             haltThatShit();
         }
         getNextToken();
-        //codeIndexTemp = codeIndex;
-        //emit(JPC, 0, 0);
+
+        codeIndexTemp = codeIndex;
+        emit(JPC, 0, 0);
         statement();
-        //code[codeIndexTemp].m = codeIndex;
+        emit(JMP, 0, 0);
+        code[codeIndexTemp].m = codeIndex;
 
         if (currentToken->intData == elsesym) {
             getNextToken();
@@ -324,30 +300,58 @@ void statement()
         }
     }
     else if (currentToken->intData == whilesym) {
-        getNextToken();
         codeIndex1 = codeIndex;
+        getNextToken();
         condition();
         codeIndex2 = codeIndex;
-        //emit(JPC, 0, 0); // TODO: find out if this should be gen()
+        emit(JPC, 0, 0);
         if (currentToken->intData != dosym) {
             printErrorMessage(expectedDo);
             haltThatShit();
         }
         getNextToken();
         statement();
-        //emit(JMP, 0, codeIndex1);   // TODO: find out if this should be gen()
-        //code[codeIndex2].m = codeIndex;
+        emit(JMP, 0, codeIndex1);
+        code[codeIndex2].m = codeIndex;
     }
     else if (currentToken->intData == readsym) {
         getNextToken();
         processIdentifier();
+
+        t = search(currentToken->prevToken->data);
+
+        // Since you can only read in a var
+        if (t->kind != var) {
+            printErrorMessage(expectedVarAfterRead);
+            haltThatShit();
+        }
+
         printf("Enter a value for %s: ", currentToken->prevToken->data);
-        scanf("%d", &val);  // TODO: store this value somewhere
+        scanf("%d", &userInput);
+
+        t = search(currentToken->prevToken->data);
+        if (t == NULL) {
+            printErrorMessage(varWasNeverDeclared);
+            haltThatShit();
+        }
+        t->val = userInput;
     }
     else if (currentToken->intData == writesym) {
         getNextToken();
-        processIdentifier();
-        printf("%s = \n", currentToken->prevToken->data);
+        if (currentToken->intData != identsym) {
+            printErrorMessage(expectedIdentAfterWrite);
+            haltThatShit();
+        }
+        getNextToken();
+        verifyValidIdentifierName(currentToken->data);
+        getNextToken();
+
+        t = search(currentToken->prevToken->data);
+        if (t == NULL) {
+            printErrorMessage(varWasNeverDeclared);
+            haltThatShit();
+        }
+        printf("%d\n", t->name, t->val);
     }
 }
 
@@ -358,9 +362,19 @@ void factor()
 {
     if (currentToken->intData == identsym) {
         processIdentifier();
+        struct symbol *t = search(currentToken->prevToken->data);
+
+        if (t == NULL) {
+            printErrorMessage(varWasNeverDeclared);
+            haltThatShit();
+        }
+
+        if (!(t->kind == var || t->kind == constant)) {
+            printErrorMessage(invalidVarInExpression);
+            haltThatShit();
+        }
     }
     else if (currentToken->intData == numbersym) {
-        printf("Number symbol detected\n");
         processNumber();
     }
     else if (currentToken->intData == lparentsym) {
@@ -373,7 +387,6 @@ void factor()
         getNextToken();
     }
     else {
-        printf("HERE: %s\n", currentToken->data);
         printErrorMessage(incompleteFactorDetected);
         haltThatShit();
     }
@@ -390,12 +403,8 @@ void term()
         multOp = currentToken->intData;
         getNextToken();
         factor();
-        if (multOp == multsym) {
-            //emit(OPR, 0, MUL);
-        }
-        else {
-            //emit(OPR, 0, DIV);
-        }
+        if (multOp == multsym) emit(OPR, 0, MUL);
+        else emit(OPR, 0, DIV);
     }
 }
 #endif //PARSER_PARSER_STATES_H
